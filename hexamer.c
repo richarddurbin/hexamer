@@ -8,7 +8,7 @@
 		of coding hexamers to all the hexamers with the same base composition
  * Exported functions: main()
  * HISTORY:
- * Last edited: Aug  3 00:26 2021 (rd109)
+ * Last edited: Aug  3 00:40 2021 (rd109)
  * * Aug  2 22:59 2021 (rd109): removed all acedb code in this standalone version
  * Created: Sun Aug 27 16:08:28 1995 (rd)
  *-------------------------------------------------------------------
@@ -139,7 +139,7 @@ static void printSeg (int x1, int x2, float score)
 	  score, strand, frame) ;
 }
 
-int main (int argc, char **argv)
+int main (int argc, char *argv[])
 {
   int i ;
   float thresh = 0.0 ;
