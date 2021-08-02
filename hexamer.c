@@ -8,7 +8,7 @@
 		of coding hexamers to all the hexamers with the same base composition
  * Exported functions: main()
  * HISTORY:
- * Last edited: Aug  2 23:49 2021 (rd109)
+ * Last edited: Aug  3 00:26 2021 (rd109)
  * * Aug  2 22:59 2021 (rd109): removed all acedb code in this standalone version
  * Created: Sun Aug 27 16:08:28 1995 (rd)
  *-------------------------------------------------------------------
@@ -115,10 +115,7 @@ static void processPartial (int step, float thresh, bool isRC,
 
 #include "readseq.h"
 
-/****************************************************************
-** stand alone version
-** writes a gff file to stdout
-*****************************************************************/
+/****************************************************************/
 
 static void usage (void)
 {
