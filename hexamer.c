@@ -8,8 +8,10 @@
 		of coding hexamers to all the hexamers with the same base composition
  * Exported functions: main()
  * HISTORY:
- * Last edited: Aug  3 00:40 2021 (rd109)
- * * Aug  2 22:59 2021 (rd109): removed all acedb code in this standalone version
+ * Last edited: Aug  4 11:41 2021 (rd109)
+ * * Aug  4 11:40 2021 (rd109): added -S option
+ * * Aug  2 22:59 2021 (rd109): removed all acedb code and tidied up this standalone version
+ * * Aug  2 22:59 2021 (rd109): added necessary headers for modern Unix compilation
  * Created: Sun Aug 27 16:08:28 1995 (rd)
  *-------------------------------------------------------------------
  */
@@ -72,10 +74,11 @@ static float makePartial (char *s, int len, float *tab, int skip, float *partial
 
 static void printSeg (int x1, int x2, float score) ;
 
-static void processPartial (int step, float thresh, bool isRC,
-			    int offset, float *partial, int len)
+static int processPartial (int step, float thresh, bool isRC,
+			   int offset, float *partial, int len)
+/* returns the total length of segments */
 { 
-  register int i, k ;
+  int i, k ;
   int loclen ;
   static int *maxes = 0, *mins = 0, slen = 0 ;
 
@@ -84,8 +87,8 @@ static void processPartial (int step, float thresh, bool isRC,
   partial += offset ;
 
   if (slen < len)
-    { free (maxes) ; maxes = (int*) malloc (len * sizeof(int)) ;
-      free (mins) ; mins = (int*) malloc (len * sizeof(int)) ;
+    { if (maxes) free (maxes) ; maxes = (int*) malloc (len * sizeof(int)) ;
+      if (mins) free (mins) ; mins = (int*) malloc (len * sizeof(int)) ;
       slen = len ;
     }
 
@@ -100,15 +103,19 @@ static void processPartial (int step, float thresh, bool isRC,
       maxes[i] = k ;
     }
 
+  int total = 0 ;
   for (i = 3 ; i <= loclen - 3 ; i += step)
     if (mins[maxes[i]] == i && 
 	partial[maxes[i]] - partial[i] > thresh)
-      { if (isRC)
+      { total += maxes[i] - i ;
+	if (isRC)
 	  printSeg (len-1 - maxes[i] - offset, len-1 - i - offset,
 		    partial[maxes[i]] - partial[i]) ;
 	else
-	  printSeg (i+offset, maxes[i]+offset, partial[maxes[i]] - partial[i]) ;
+	  printSeg (i + offset, maxes[i] + offset, partial[maxes[i]] - partial[i]) ;
       }
+  
+  return total ;
 }
 
 /****************************************************************/
@@ -120,9 +127,10 @@ static void processPartial (int step, float thresh, bool isRC,
 static void usage (void)
 {
   fprintf (stdout, "Usage: hexamer [opts] <tableFile> <seqFile>\n") ;
-  fprintf (stdout, "options: -T <threshold>          0\n") ;
-  fprintf (stdout, "         -F <feature name>       tableFile name\n") ;
-  fprintf (stdout, "         -n	   flag for noncoding (no triplet frame)\n") ;
+  fprintf (stdout, "options: -T <threshold>      0\n") ;
+  fprintf (stdout, "         -F <feature name>   tableFile name\n") ;
+  fprintf (stdout, "         -n	                 flag for noncoding (no triplet frame)\n") ;
+  fprintf (stdout, "         -S                  flag to output sum per sequence, not individual segments\n") ;
   exit (-1) ;
 }
 
@@ -131,9 +139,11 @@ static char *tableName ;
 static char *featName ;
 static char strand ;
 static char frame = '0' ;
+static bool isTotal = false ;
 
 static void printSeg (int x1, int x2, float score)
 {
+  if (isTotal) return ;
   printf ("%s\t%s\t%s\t%d\t%d\t%.4f\t%c\t%c\n", 
 	  seqName, "hexamer", featName, x1+1, x2+1, 
 	  score, strand, frame) ;
@@ -166,6 +176,10 @@ int main (int argc, char *argv[])
       { step = 1 ; frame = '.' ;
 	argc -= 1 ; argv += 1 ;
       }
+    else if (!strcmp (*argv, "-S"))
+      { isTotal = true ;
+	argc -= 1 ; argv += 1 ;
+      }
     else if (**argv == '-')
       { fprintf (stderr, "Unrecognised option %s\n", *argv) ;
 	usage() ;
@@ -190,39 +204,41 @@ int main (int argc, char *argv[])
       usage() ;
     }
 
-  if (!readSequence (seqFile, dna2indexConv, 
-		     &seq, &seqName, 0, &len))
-    { fprintf (stderr, "Errors reading sequence %s\n", *argv) ;
-      usage() ;
-    }
-  for (i = 0 ; i < len ; ++i)	/* remove N's - map to C for this */
-    if (seq[i] > 3) seq[i] = 1 ;
-
-  partial = (float*) malloc (sizeof(float)*len) ;
-
+  long count = 0, sumTotal = 0, sumLength = 0 ;
+  int *conv = dna2indexConv ; conv['n'] = conv['N'] = 1 ; /* map Ns to C for this */
+  while (readSequence (seqFile, conv, &seq, &seqName, 0, &len))
+    { int total = 0 ;
+      partial = (float*) malloc (sizeof(float)*len) ;
+      
 				/* first do forward direction */
-  isRC = false ; strand = '+' ;
-  for (i = 0 ; i < step ; ++i)
-    makePartial (seq+i, len-i, tab, step, partial+i) ;
-
-  for (i = 0 ; i < step ; ++i)
-    processPartial (step, thresh, isRC, i, partial, len) ;
+      isRC = false ; strand = '+' ;
+      for (i = 0 ; i < step ; ++i)
+	makePartial (seq+i, len-i, tab, step, partial+i) ;
+      for (i = 0 ; i < step ; ++i)
+	total += processPartial (step, thresh, isRC, i, partial, len) ;
 
 				/* then reverse complement */
-  isRC = true ; strand = '-' ;
-  for (i = 0 ; i < len-1-i ; ++i)
-    { c = 3 - seq[i] ;	/* NB "3 -" does complement */
-      seq[i] = 3 - seq[len-1-i] ; 
-      seq[len-1-i] = c ; 
-    }
+      isRC = true ; strand = '-' ;
+      for (i = 0 ; i < len-1-i ; ++i)
+	{ c = 3 - seq[i] ;	/* NB "3 -" does complement */
+	  seq[i] = 3 - seq[len-1-i] ; 
+	  seq[len-1-i] = c ; 
+	}
+      for (i = 0 ; i < step ; ++i)
+	makePartial (seq+i, len-i, tab, step, partial+i) ;
+      for (i = 0 ; i < step ; ++i)
+	total += processPartial (step, thresh, isRC, i, partial, len) ;
 
-  for (i = 0 ; i < step ; ++i)
-    makePartial (seq+i, len-i, tab, step, partial+i) ;
-  for (i = 0 ; i < step ; ++i)
-    processPartial (step, thresh, isRC, i, partial, len) ;
+      if (isTotal) printf ("%s\t%d\t%d\n", seqName, len, total) ;
+      sumTotal += total ;
+      sumLength += len ;
+      ++count ;
+      free (seq) ;
+      free (seqName) ;
+      free (partial) ;
+   }
 
-  free (seq) ;
-  free (partial) ;
+  fprintf (stderr, "%ld sequences %ld sumLength %ld sumTotal\n", count, sumLength, sumTotal) ;
 }
 
 /**************** end of file ****************/
