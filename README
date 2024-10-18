@@ -2,7 +2,7 @@ hexamer and hextable
 --------------------
 
 hextable makes files of statistics that hexamer uses to scan for
-likely coding regions.The principle is to use 6mers, but to avoid
+likely coding regions. The principle is to use 6mers, but to avoid
 deriving any information from base composition.  I therefore normalise
 the frequencies of each 6mer by dividing by the total frequency of all
 6mers with the same base composition.
@@ -11,8 +11,9 @@ The input of hextable is a fasta file of coding sequences in frame.
 The -o file output is an ascii list of 4096 floating point numbers
 giving log likelihood ratio scores in bits.  The output on stdout is a
 summary of the information content of the table, indicating how
-disriminative it is likely to be.  The output of hexamer is in GFF
-format (http://www.sanger.ac.uk/Users/rd/gff.html).
+discriminative it is likely to be.  The output of hexamer is maximal
+scoring segments of its input with score greater than or equal to T, 
+in GFF format (http://www.sanger.ac.uk/Users/rd/gff.html).
 
 Type "make" to build the programs, and "make clean" to remove them.
 
